@@ -1,38 +1,195 @@
-.App {
+/* --- Base & Font --- */
+*, *::before, *::after {
+  box-sizing: border-box; /* Better layout control */
+}
+
+body {
+  font-family: 'Poppins', sans-serif; /* Modern font */
+  background-color: #eef2f7; /* Lighter, slightly cooler background */
+  color: #2d3748; /* Darker grey for better contrast */
+  margin: 0;
+  padding: 20px; /* Add padding for smaller screens */
+  line-height: 1.6;
+}
+
+/* --- Container --- */
+.container {
+  max-width: 750px;
+  margin: 40px auto;
+  padding: 35px 40px; /* Increased padding */
+  background-color: #ffffff;
+  border-radius: 16px; /* More rounded corners */
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.04); /* Softer, deeper shadow */
+  border: 1px solid #e2e8f0; /* Subtle border */
+}
+
+/* --- Headings --- */
+h2 {
   text-align: center;
+  color: #1a202c; /* Even darker heading */
+  margin-bottom: 30px; /* More space below heading */
+  font-weight: 600;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+h3 {
+    color: #2c5282; /* Slightly muted blue for sub-headings */
+    margin-top: 25px;
+    margin-bottom: 15px;
+    font-weight: 600;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+h4 {
+color: #1a202c;       /* Black / Very dark grey */
+  font-weight: 600;      /* Bolder */
+  font-size: 1.0rem;    /* Increased size (adjust 1.1rem if needed) */
+  margin-top: 0;
+  margin-bottom: 15px;   /* Slightly more space below */
+  padding-bottom: 0;     /* Remove padding */
+  border-bottom: none;
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
+
+/* --- Form Elements --- */
+input, select {
+  width: 100%;
+  padding: 14px 16px; /* Slightly more padding */
+  margin-top: 15px;
+  border: 1px solid #cbd5e0; /* Lighter border */
+  border-radius: 8px;
+  font-size: 16px;
+  font-family: inherit; /* Ensure selects inherit font */
+  background-color: #fdfdfe; /* Very subtle off-white */
+  transition: border-color 0.2s ease, box-shadow 0.2s ease; /* Smooth transitions */
+}
+
+input:focus, select:focus {
+  outline: none;
+  border-color: #4299e1; /* Highlight focus with blue border */
+  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.2); /* Subtle focus glow */
+}
+
+/* Basic select arrow styling improvement (optional, can be complex) */
+select {
+  appearance: none; /* Remove default arrow */
+  background-image: url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="%23718096" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg>');
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  background-size: 12px 12px;
+  padding-right: 40px; /* Make space for custom arrow */
+}
+
+/* --- Button --- */
+button {
+  width: 100%;
+  padding: 15px 20px;
+  margin-top: 25px; /* More space above button */
+  border: none;
+  border-radius: 8px;
+  font-size: 17px;
+  font-weight: 600; /* Bolder text */
+  font-family: inherit;
   color: white;
+  cursor: pointer;
+  /* --- Gradient Background --- */
+  background: linear-gradient(45deg, #3182ce, #63b3ed); /* Blue gradient */
+  background-size: 150% 150%; /* For hover effect */
+  transition: background-position 0.4s ease, transform 0.2s ease, box-shadow 0.2s ease; /* Smooth transitions */
+  box-shadow: 0 4px 15px rgba(49, 130, 206, 0.2); /* Subtle button shadow */
 }
 
-.App-link {
-  color: #61dafb;
+button:hover:not(:disabled) {
+  background-position: right center; /* Shift gradient */
+  box-shadow: 0 6px 20px rgba(49, 130, 206, 0.3); /* Enhance shadow */
+  transform: translateY(-2px); /* Slight lift */
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+button:active:not(:disabled) {
+  transform: translateY(0px); /* Press down effect */
+  box-shadow: 0 3px 10px rgba(49, 130, 206, 0.2);
+}
+
+button:disabled {
+  background: #cbd5e0; /* Grey out disabled button */
+  color: #a0aec0;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* --- Result Area --- */
+.result {
+  margin-top: 40px; /* More space above results */
+  padding-top: 20px;
+  border-top: 1px solid #e2e8f0; /* Separator line */
+  /* Add subtle fade-in animation if desired (requires JS class toggle) */
+  /* animation: fadeIn 0.5s ease-out; */
+}
+
+/* Keyframes for fade-in (optional) */
+/* @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } } */
+
+
+/* --- Result Cards --- */
+.result-card {
+  background-color: #f7fafc; /* Slightly different background for cards */
+  padding: 20px 25px; /* More padding inside cards */
+  margin-top: 20px;
+  border-radius: 12px; /* More rounded cards */
+  border: 1px solid #e2e8f0; /* Subtle border */
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04); /* Very subtle card shadow */
+}
+
+.result-card ul {
+  padding-left: 20px;
+  list-style: none; /* Remove default bullets */
+  margin: 0;
+}
+
+.result-card ul li {
+  padding-left: 15px; /* Space for custom bullet */
+  position: relative;
+  margin-bottom: 8px; /* Space between list items */
+}
+
+/* Custom bullet point style */
+.result-card ul li::before {
+  content: '✓'; /* Checkmark or other icon */
+  color: #38a169; /* Green color for checkmark */
+  font-weight: bold;
+  position: absolute;
+  left: -5px;
+  top: 1px;
+}
+
+/* --- Links --- */
+a {
+  color: #3182ce; /* Use the primary blue */
+  text-decoration: none;
+  font-weight: 500; /* Make links slightly bolder */
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: #2c5282; /* Darken blue on hover */
+  text-decoration: underline;
+}
+
+/* --- Utility/Feedback --- */
+p[style*="color: red"] { /* Style the error message */
+  background-color: #fed7d7;
+  color: #c53030 !important; /* Ensure override */
+  padding: 10px 15px;
+  border-radius: 6px;
+  margin-top: 15px;
+  border: 1px solid #fbb6b6;
+  font-weight: 500;
+}
+
+p:last-child { /* Remove margin bottom from last paragraph often */
+    margin-bottom: 0;
+}
+
+/* Custom selection style */
+::selection {
+  background-color: #63b3ed;
+  color: white;
 }
