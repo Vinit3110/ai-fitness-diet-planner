@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import "./App.css";
-
+import "./App.css"; // Make sure App.css is updated with new classes
 
 // --- Constants --- (No changes needed here)
 const activityFactors = {
@@ -32,16 +31,24 @@ const getWorkoutPlan = (category, goal) => {
     Overweight: { lose: ["Walking - 30 mins", "Modified Squats - 3x10", "Wall Push-ups - 3x10"], maintain: ["Swimming - 20 mins", "Cycling - 30 mins"] },
     Obese: { lose: ["Seated Marching - 3x20", "Chair Squats - 3x10", "Ankle Rotations - 3x15"], maintain: ["Walking - 20 mins", "Stretching - 15 mins"] },
   };
+  // Use optional chaining for safety and provide a default fallback
   return basePlans[category]?.[goal] || ["Walk daily & stay active!"];
 };
 
-// Fetch Meals (Improved Error Handling - Throws Error on Failure)
+// Fetch Meals (Improved Error Handling & Using Environment Variable for API Key)
 const fetchMeals = async (calories, diet) => {
-  const apiKey = "f826eb140384494cae78589a15ff49ba"; // !! Still hardcoded as requested for now !!
+  // *** NECESSARY CHANGE: Use Environment Variable for API Key ***
+  const apiKey = process.env.REACT_APP_SPOONACULAR_API_KEY;
+
+  // Check if the API key is loaded correctly
+  if (!apiKey) {
+      console.error("Spoonacular API key is missing. Make sure it's set in the .env file as REACT_APP_SPOONACULAR_API_KEY and the server was restarted.");
+      throw new Error("API configuration error. Cannot fetch meals."); // Informative error for developer/user
+  }
 
   const dietMap = {
     veg: "vegetarian",
-    "non-veg": "",
+    "non-veg": "", // Spoonacular default is often non-veg if no diet specified
     vegan: "vegan",
   };
 
@@ -51,44 +58,52 @@ const fetchMeals = async (calories, diet) => {
   try {
     const response = await fetch(url);
 
-    // Check if the response status is OK (e.g., 200)
     if (!response.ok) {
-        let errorMsg = `API request failed with status ${response.status}`;
-        try {
-            // Try to parse error details from the API response body
-            const errorData = await response.json();
-            errorMsg = errorData.message || errorMsg; // Use API's message if available
-        } catch (parseError) {
-            // Ignore error if response body is not JSON or empty
-        }
-        console.error("API Error Details:", errorMsg);
-        throw new Error(`Failed to fetch meals: ${errorMsg}`); // Throw an error to be caught by handleCalculate
+      let errorMsg = `API request failed with status ${response.status}`;
+      try {
+        const errorData = await response.json();
+        // Use more specific error message from Spoonacular if available
+        errorMsg = errorData.message || errorMsg;
+      } catch (parseError) {
+         // Ignore error if response body is not JSON or empty
+         console.warn("Could not parse error response from API:", parseError);
+      }
+      console.error("API Error Details:", errorMsg);
+      // Provide a more user-friendly error message if it's a common API key issue
+      if (response.status === 401 || response.status === 402) { // Unauthorized or Payment Required
+          errorMsg = "There was an issue accessing the meal service (API key invalid or quota exceeded?). Please contact support.";
+      }
+      throw new Error(`Failed to fetch meals: ${errorMsg}`);
     }
-
 
     const data = await response.json();
 
-    // Handle cases where the API might return an empty meals array or no meals key
     if (!data.meals || data.meals.length === 0) {
-        console.log("API returned successfully but found no meals for the criteria.");
-        return []; // Return empty array if no meals found
+      console.log("API returned successfully but found no meals for the criteria.");
+      return []; // Return empty array is fine, UI will handle it
     }
 
+    // Ensure meal.id exists before using it for the URL
     return data.meals.map((meal) => ({
+      id: meal.id, // Include ID for use as key
       label: meal.title,
-      // Construct URL robustly - check if id exists
-      url: meal.id ? `https://spoonacular.com/recipes/${meal.title
+      url: meal.sourceUrl, // Prefer sourceUrl if available as it's direct
+      // Fallback URL construction if sourceUrl is missing
+      fallbackUrl: meal.id ? `https://spoonacular.com/recipes/${meal.title
         .toLowerCase()
         .replace(/[^a-z0-9\s-]/g, '') // Basic sanitization
-        .replace(/\s+/g, "-")}-${meal.id}` : '#', // Fallback URL
-      sourceUrl: meal.sourceUrl // Include sourceUrl if available
+        .replace(/\s+/g, "-")}-${meal.id}` : '#',
     }));
 
   } catch (error) {
+    // Log the original error for debugging, but re-throw a potentially more user-friendly one
     console.error("Error during fetchMeals execution:", error);
-    // Re-throw the error so handleCalculate knows something went wrong
-    // Add context if it's not already an Error object with a message
-    throw new Error(`Could not retrieve meal data: ${error.message || error}`);
+    // Check if it's the specific error we threw earlier
+    if (error.message.startsWith("Failed to fetch meals:") || error.message.startsWith("API configuration error.")) {
+        throw error; // Re-throw our custom error
+    }
+    // Throw a generic error for other network or unexpected issues
+    throw new Error(`Could not retrieve meal data. Please check your connection or try again later.`);
   }
 };
 
@@ -107,35 +122,33 @@ function App() {
   });
 
   const [result, setResult] = useState(null);
-  const [loading, setLoading] = useState(false); // Added loading state
-  const [error, setError] = useState("");     // Added error state
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleChange = (e) => {
-    // Clear error when user starts typing again
     if (error) {
-      setError("");
+      setError(""); // Clear error on interaction
     }
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Refactored Handle Calculate using async/await and try/catch/finally
   const handleCalculate = async () => {
-    setError("");     // Clear previous errors
-    setResult(null);  // Clear previous results
-    setLoading(true); // Start loading
+    setError("");
+    setResult(null);
+    setLoading(true);
 
     const { name, age, weight, height, gender, activity, goal, diet } = formData;
 
     // --- Input Validation ---
     if (!name || !age || !weight || !height || !gender || !activity || !goal || !diet) {
       setError("Please fill out all fields.");
-      setLoading(false); // Stop loading
+      setLoading(false);
       return;
     }
 
     const weightNum = parseFloat(weight);
     const heightNum = parseFloat(height);
-    const ageNum = parseInt(age);
+    const ageNum = parseInt(age, 10); // Added radix 10 for parseInt
 
     if (isNaN(weightNum) || isNaN(heightNum) || isNaN(ageNum)) {
        setError("Please enter valid numbers for age, weight, and height.");
@@ -149,7 +162,6 @@ function App() {
     }
     // --- End Validation ---
 
-
     try {
       // --- Calculations ---
       const bmi = (weightNum / (heightNum / 100) ** 2).toFixed(2);
@@ -159,6 +171,7 @@ function App() {
       else if (bmi < 30) category = "Overweight";
       else category = "Obese";
 
+      // Mifflin-St Jeor Equation for BMR
       const bmr =
         gender === "male"
           ? 10 * weightNum + 6.25 * heightNum - 5 * ageNum + 5
@@ -166,16 +179,16 @@ function App() {
 
       const activityFactor = activityFactors[activity];
       const goalAdjustment = goalAdjustments[goal];
-      const calorieNeed = Math.round(bmr * activityFactor + goalAdjustment);
+      // Ensure calorie need is not negative (e.g., extreme lose goal with low BMR)
+      const calorieNeed = Math.max(1200, Math.round(bmr * activityFactor + goalAdjustment)); // Set a minimum floor like 1200
 
       const quote = motivationalQuotes[name.length % motivationalQuotes.length];
       const workouts = getWorkoutPlan(category, goal);
 
       // --- Fetch Meals Asynchronously ---
-      // This will now throw an error if fetchMeals fails internally
-      const meals = await fetchMeals(calorieNeed, diet);
+      const meals = await fetchMeals(calorieNeed, diet); // Will throw if it fails
 
-      // --- Set Result State ONCE --- (Only runs if fetchMeals succeeds)
+      // --- Set Result State ONCE ---
       setResult({
         bmi,
         bmr: Math.round(bmr),
@@ -183,86 +196,113 @@ function App() {
         calorieNeed,
         quote,
         workouts,
-        meals, // Include fetched meals
+        meals,
       });
 
     } catch (err) {
-      // Handle errors from calculations or fetchMeals
       console.error("Error in handleCalculate:", err);
       // Display the error message thrown by fetchMeals or other calculation errors
       setError(err.message || "An unexpected error occurred while generating the plan.");
       setResult(null); // Ensure result is cleared on error
     } finally {
-      // This block runs whether the try block succeeded or failed
-      setLoading(false); // Stop loading
+      setLoading(false); // Stop loading regardless of success or failure
     }
   };
 
   return (
-    <div className="container"> {/* Added class for potential styling */}
+    <div className="container">
       <h2>AI-Powered Fitness & Diet Planner</h2>
 
-      {/* Form Inputs - Now Controlled Components */}
-      <input type="text" name="name" placeholder="Name" onChange={handleChange} value={formData.name} />
-      <input type="number" name="age" placeholder="Age" onChange={handleChange} value={formData.age} min="1"/>
-      <input type="number" name="weight" placeholder="Weight (kg)" onChange={handleChange} value={formData.weight} min="0.1" step="0.1"/>
-      <input type="number" name="height" placeholder="Height (cm)" onChange={handleChange} value={formData.height} min="1"/>
+      {/* Form Inputs - Using Labels for Accessibility */}
+      <div className="form-group">
+        <label htmlFor="nameInput">Name:</label>
+        <input id="nameInput" type="text" name="name" placeholder="Enter your name" onChange={handleChange} value={formData.name} required />
+      </div>
 
-      <select name="gender" onChange={handleChange} value={formData.gender}>
-        <option value="">Select Gender</option>
-        <option value="male">Male</option>
-        <option value="female">Female</option>
-      </select>
+      <div className="form-group">
+        <label htmlFor="ageInput">Age:</label>
+        <input id="ageInput" type="number" name="age" placeholder="e.g., 30" onChange={handleChange} value={formData.age} min="1" required />
+      </div>
 
-      <select name="activity" onChange={handleChange} value={formData.activity}>
-        <option value="">Activity Level</option>
-        <option value="low">Low (Sedentary)</option>
-        <option value="medium">Moderate (Some exercise)</option>
-        <option value="high">High (Active lifestyle)</option>
-      </select>
+      <div className="form-group">
+        <label htmlFor="weightInput">Weight (kg):</label>
+        <input id="weightInput" type="number" name="weight" placeholder="e.g., 70" onChange={handleChange} value={formData.weight} min="0.1" step="0.1" required />
+      </div>
 
-      <select name="goal" onChange={handleChange} value={formData.goal}>
-        <option value="">Fitness Goal</option>
-        <option value="lose">Lose Weight</option>
-        <option value="maintain">Maintain Weight</option>
-        <option value="gain">Gain Muscle/Weight</option>
-      </select>
+      <div className="form-group">
+         <label htmlFor="heightInput">Height (cm):</label>
+        <input id="heightInput" type="number" name="height" placeholder="e.g., 175" onChange={handleChange} value={formData.height} min="1" required/>
+      </div>
 
-      <select name="diet" onChange={handleChange} value={formData.diet}>
-        <option value="">Diet Preference</option>
-        <option value="veg">Vegetarian</option>
-        <option value="non-veg">Non-Vegetarian</option>
-        <option value="vegan">Vegan</option>
-      </select>
+      <div className="form-group">
+        <label htmlFor="genderSelect">Gender:</label>
+        <select id="genderSelect" name="gender" onChange={handleChange} value={formData.gender} required>
+          <option value="">Select Gender</option>
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+        </select>
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="activitySelect">Activity Level:</label>
+        <select id="activitySelect" name="activity" onChange={handleChange} value={formData.activity} required>
+          <option value="">Select Activity Level</option>
+          <option value="low">Low (Sedentary)</option>
+          <option value="medium">Moderate (Some exercise)</option>
+          <option value="high">High (Active lifestyle)</option>
+        </select>
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="goalSelect">Fitness Goal:</label>
+        <select id="goalSelect" name="goal" onChange={handleChange} value={formData.goal} required>
+          <option value="">Select Fitness Goal</option>
+          <option value="lose">Lose Weight</option>
+          <option value="maintain">Maintain Weight</option>
+          <option value="gain">Gain Muscle/Weight</option>
+        </select>
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="dietSelect">Diet Preference:</label>
+        <select id="dietSelect" name="diet" onChange={handleChange} value={formData.diet} required>
+          <option value="">Select Diet Preference</option>
+          <option value="veg">Vegetarian</option>
+          <option value="non-veg">Non-Vegetarian</option>
+          <option value="vegan">Vegan</option>
+        </select>
+      </div>
 
       {/* Display Error Messages */}
-      {error && <p style={{ color: 'red', marginTop: '10px' }}>{error}</p>}
+      {error && <p className="error-message">{error}</p>}
 
       {/* Button with Loading State */}
-      <button onClick={handleCalculate} disabled={loading} style={{ marginTop: '10px' }}>
+      <button className="submit-button" onClick={handleCalculate} disabled={loading}>
         {loading ? "Generating Plan..." : "Generate Plan"}
       </button>
 
       {/* Display Loading Indicator */}
-      {loading && <p>Loading details...</p>}
+      {loading && <p className="loading-message">Loading details...</p>}
 
       {/* Results Section */}
-      {result && !loading && ( // Only show results if not loading and result exists
-        <div className="result" style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '15px' }}>
+      {result && !loading && (
+        <div className="results-section">
           <h3>Hello, {formData.name}! Here's your plan:</h3>
           <p><strong>BMI:</strong> {result.bmi} ({result.category})</p>
-          <p><strong>BMR:</strong> {result.bmr} kcal/day</p>
-          <p><strong>Daily Calorie Need:</strong> {result.calorieNeed} kcal/day</p>
+          <p><strong>BMR (Basal Metabolic Rate):</strong> {result.bmr} kcal/day</p>
+          <p><strong>Estimated Daily Calorie Need:</strong> {result.calorieNeed} kcal/day</p>
 
           <h4>Recommended Meals ({result.meals?.length || 0}):</h4>
-          {/* Use optional chaining and check length for robustness */}
           {result.meals && result.meals.length > 0 ? (
             <ul>
-              {result.meals.map((meal, index) => (
-                <li key={index}>
-                  <a href={meal.sourceUrl || meal.url} target="_blank" rel="noopener noreferrer">
+              {result.meals.map((meal) => (
+                // *** Use meal.id as key if available and unique ***
+                <li key={meal.id}>
+                  <a href={meal.url || meal.fallbackUrl} target="_blank" rel="noopener noreferrer">
                     {meal.label}
                   </a>
+                  {/* Optionally display sourceUrl if different and desired */}
+                  {/* {meal.url && meal.fallbackUrl && meal.url !== meal.fallbackUrl && <span> (<a href={meal.fallbackUrl} target="_blank" rel="noopener noreferrer">details</a>)</span>} */}
                 </li>
               ))}
             </ul>
@@ -273,6 +313,7 @@ function App() {
           <h4>Workout Plan:</h4>
           {result.workouts && result.workouts.length > 0 ? (
              <ul>
+               {/* For workouts without unique IDs, index is acceptable */}
                {result.workouts.map((exercise, index) => (
                  <li key={index}>{exercise}</li>
                ))}
@@ -280,14 +321,12 @@ function App() {
           ) : (
              <p>No specific workout plan generated for this combination.</p>
           )}
-            
-            <p><strong>Quote:</strong> “{result.quote}”</p>
+
+          <p><strong>Quote for the day:</strong> “{result.quote}”</p>
         </div>
       )}
     </div>
   );
 }
-
-
 
 export default App;
