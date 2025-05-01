@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import "./App.css";
+
 
 // --- Constants --- (No changes needed here)
 const activityFactors = {
